@@ -133,16 +133,19 @@ const _db = firebase.database();
 const fbKey = t => t.trim().replace(/[.#$\[\]\/\s]+/g, '-');
 
 let gamePk = null, awayId = null, homeId = null, pollTimer = null;
+let delayMs = 30000, firstRender = true;
 
 if (TOPIC) {
   _db.ref(`studio2scorebug/${fbKey(TOPIC)}/state`).on('value', snap => {
     const cfg = snap.val();
     if (!cfg || !cfg.gamePk) return;
+    delayMs = typeof cfg.delay === 'number' ? cfg.delay : 30000;
     if (cfg.gamePk === gamePk) return;
 
     gamePk = cfg.gamePk;
     awayId = cfg.awayId;
     homeId = cfg.homeId;
+    firstRender = true;
 
     document.getElementById('away-logo').src = `https://www.mlbstatic.com/team-logos/${awayId}.svg`;
     document.getElementById('home-logo').src = `https://www.mlbstatic.com/team-logos/${homeId}.svg`;
@@ -181,8 +184,20 @@ function findLastPitch(data) {
 
 async function poll() {
   if (!gamePk) return;
+  const pk = gamePk;
   try {
-    const data = await fetch(`${MLB}/api/v1.1/game/${gamePk}/feed/live`).then(r => r.json());
+    const data = await fetch(`${MLB}/api/v1.1/game/${pk}/feed/live`).then(r => r.json());
+    const useDelay = delayMs > 0 && !firstRender;
+    firstRender = false;
+    if (useDelay) {
+      setTimeout(() => { if (pk === gamePk) render(data); }, delayMs);
+    } else {
+      render(data);
+    }
+  } catch (e) { console.error(e); }
+}
+
+function render(data) {
     const gd = data.gameData;
     const ls = data.liveData?.linescore || {};
     const state = gd.status.abstractGameState;
@@ -246,7 +261,6 @@ async function poll() {
       awayInfo.innerHTML = '';
       homeInfo.innerHTML = '';
     }
-  } catch (e) { console.error(e); }
 }
 </script>
 </body>

@@ -94,6 +94,26 @@ option:disabled { color: rgba(255,255,255,0.2); }
   </div>
 
   <div class="section">
+    <div class="section-title">Settings</div>
+    <div class="row">
+      <label>Spoiler Delay</label>
+      <select id="delay-sel">
+        <option value="1000">1s</option>
+        <option value="5000">5s</option>
+        <option value="10000">10s</option>
+        <option value="15000">15s</option>
+        <option value="20000">20s</option>
+        <option value="25000">25s</option>
+        <option value="30000" selected>30s</option>
+        <option value="35000">35s</option>
+        <option value="40000">40s</option>
+        <option value="45000">45s</option>
+      </select>
+    </div>
+    <p class="hint">Delays score/at-bat updates on stream so the bug doesn't spoil a play before viewers see it.</p>
+  </div>
+
+  <div class="section">
     <div class="section-title">Game</div>
     <div class="row">
       <select id="game-sel"><option value="">Loading…</option></select>
@@ -126,9 +146,11 @@ _db.ref('.info/connected').on('value', snap => {
 let todayGames = [];
 const topicInput = document.getElementById('topic-input');
 const gameSel = document.getElementById('game-sel');
+const delaySel = document.getElementById('delay-sel');
 
 const saved = JSON.parse(localStorage.getItem('studio2-ctrl') || '{}');
 topicInput.value = saved.topic || '';
+if (saved.delay) delaySel.value = saved.delay;
 updateObsUrl();
 
 topicInput.addEventListener('input', () => {
@@ -138,6 +160,7 @@ topicInput.addEventListener('input', () => {
   saveAndPush();
 });
 gameSel.addEventListener('change', () => { updateGameStatus(); saveAndPush(); });
+delaySel.addEventListener('change', saveAndPush);
 
 function updateObsUrl() {
   const topic = topicInput.value.trim();
@@ -159,7 +182,8 @@ function copyUrl() {
 function saveSettings() {
   localStorage.setItem('studio2-ctrl', JSON.stringify({
     topic: topicInput.value.trim(),
-    gamePk: gameSel.value
+    gamePk: gameSel.value,
+    delay: delaySel.value
   }));
 }
 
@@ -178,7 +202,8 @@ async function pushConfig() {
   const cfg = {
     gamePk: g.gamePk,
     awayId: g.teams.away.team.id,
-    homeId: g.teams.home.team.id
+    homeId: g.teams.home.team.id,
+    delay: parseInt(delaySel.value)
   };
   const statusEl = document.getElementById('push-status');
   try {
