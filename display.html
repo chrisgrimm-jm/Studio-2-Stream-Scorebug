@@ -157,6 +157,39 @@ if (TOPIC) {
   });
 }
 
+// Batter-vs-pitcher season stats, cached per matchup so repeated polls
+// don't refetch. Value is undefined (loading), null (no at-bats yet), or a line string.
+const vsPitcherCache = new Map();
+let showSeasonLine = false;
+
+function formatStatLine(stat) {
+  if (!stat || !stat.atBats) return null;
+  const extras = [];
+  if (stat.homeRuns) extras.push(`${stat.homeRuns} HR`);
+  if (stat.doubles) extras.push(`${stat.doubles} 2B`);
+  if (stat.rbi) extras.push(`${stat.rbi} RBI`);
+  if (stat.baseOnBalls) extras.push(`${stat.baseOnBalls} BB`);
+  return `${stat.hits}-${stat.atBats}` + (extras.length ? ` | ${extras.join(', ')}` : '');
+}
+
+function getVsPitcherLine(batterId, pitcherId, season, pitcherLastName) {
+  const key = `${batterId}_${pitcherId}`;
+  if (vsPitcherCache.has(key)) return vsPitcherCache.get(key);
+
+  vsPitcherCache.set(key, undefined);
+  fetch(`${MLB}/api/v1/people/${batterId}/stats?stats=vsPlayer&opposingPlayerId=${pitcherId}&group=hitting&sportId=1`)
+    .then(r => r.json())
+    .then(data => {
+      const splits = data.stats?.find(s => s.type?.displayName === 'vsPlayer')?.splits || [];
+      const split = splits.find(s => s.season === season);
+      const line = split ? `${season} vs ${pitcherLastName}: ${formatStatLine(split.stat) || '0-0'}` : null;
+      vsPitcherCache.set(key, line);
+    })
+    .catch(() => vsPitcherCache.set(key, null));
+
+  return undefined;
+}
+
 function personBlock(role, name, lines) {
   return `<div class="info-role">${role}</div><div class="info-name">${name}</div>` +
     lines.filter(Boolean).map(l => `<div class="info-line">${l}</div>`).join('');
@@ -240,7 +273,8 @@ function render(data) {
       const boxSide = battingIsAway ? 'away' : 'home';
       const pitchSide = battingIsAway ? 'home' : 'away';
       const batterId = off.batter?.id;
-      const pitcherId = (ls.defense || {}).pitcher?.id;
+      const pitcher = (ls.defense || {}).pitcher;
+      const pitcherId = pitcher?.id;
       const battingLine = data.liveData.boxscore?.teams?.[boxSide]?.players?.[`ID${batterId}`]?.stats?.batting?.summary || '';
       const pitching = data.liveData.boxscore?.teams?.[pitchSide]?.players?.[`ID${pitcherId}`]?.stats?.pitching || {};
       const pitchCount = pitching.numberOfPitches != null ? `${pitching.numberOfPitches} pitches` : '';
@@ -250,7 +284,14 @@ function render(data) {
         ? `Last: ${lastPitch.details?.type?.description || 'Pitch'}, ${lastPitch.pitchData?.startSpeed ? lastPitch.pitchData.startSpeed.toFixed(1) + ' mph' : ''}`
         : '';
 
-      const batterBlock = personBlock('At Bat', off.batter?.fullName || '—', [battingLine]);
+      showSeasonLine = !showSeasonLine;
+      const pitcherLastName = pitcher?.fullName?.split(' ').slice(-1)[0] || '';
+      const seasonVsLine = batterId && pitcherId
+        ? getVsPitcherLine(batterId, pitcherId, gd.game.season, pitcherLastName)
+        : undefined;
+      const batterLine = (showSeasonLine && seasonVsLine) ? seasonVsLine : battingLine;
+
+      const batterBlock = personBlock('At Bat', off.batter?.fullName || '—', [batterLine]);
       const pitcherBlock = personBlock('Pitching', (ls.defense || {}).pitcher?.fullName || '—', [pitchCount, lastPitchLine]);
       awayInfo.innerHTML = battingIsAway ? batterBlock : pitcherBlock;
       homeInfo.innerHTML = battingIsAway ? pitcherBlock : batterBlock;
