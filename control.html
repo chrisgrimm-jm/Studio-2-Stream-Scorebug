@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Studio 2 Scorebug Control</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700;900&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Barlow', sans-serif; }
+html, body {
+  background: #0a0d14;
+  color: #c8d0da;
+  font-family: 'Barlow', sans-serif;
+  font-size: 14px;
+  min-height: 100vh;
+}
+.panel { max-width: 560px; margin: 0 auto; padding: 28px 20px 60px; }
+h1 {
+  font-size: 13px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase;
+  color: rgba(255,255,255,0.35); margin-bottom: 22px;
+}
+.section {
+  background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 8px; padding: 16px; margin-bottom: 12px;
+}
+.section-title {
+  font-size: 10px; font-weight: 700; letter-spacing: .13em; text-transform: uppercase;
+  color: rgba(255,255,255,0.28); margin-bottom: 13px;
+}
+.row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.row:last-child { margin-bottom: 0; }
+label {
+  font-size: 11px; font-weight: 700; color: rgba(255,255,255,0.35);
+  text-transform: uppercase; letter-spacing: .07em; min-width: 56px; flex-shrink: 0;
+}
+select, input[type="text"] {
+  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 4px; color: #e0e6ee; font-size: 13px; font-family: 'Barlow', sans-serif;
+  padding: 7px 10px; flex: 1; outline: none; transition: border-color .15s; cursor: pointer;
+}
+select:focus, input:focus { border-color: rgba(255,255,255,0.25); }
+option { background: #0e1420; }
+option:disabled { color: rgba(255,255,255,0.2); }
+
+.obs-url-box {
+  background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.06); border-radius: 4px;
+  padding: 9px 12px; margin-top: 10px; display: flex; align-items: center; gap: 10px;
+}
+.obs-url-text { flex: 1; font-size: 11px; font-family: monospace; color: rgba(255,255,255,0.3); word-break: break-all; }
+.copy-btn {
+  flex-shrink: 0; font-size: 10px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase;
+  padding: 5px 11px; border-radius: 3px; border: 1px solid rgba(255,255,255,0.14);
+  background: rgba(255,255,255,0.04); color: rgba(255,255,255,0.38); cursor: pointer; transition: all .15s;
+}
+.copy-btn:hover { background: rgba(255,255,255,0.09); color: #fff; }
+.copy-btn.copied { background: rgba(34,197,94,0.12); border-color: rgba(34,197,94,0.28); color: #22c55e; }
+
+.hint { font-size: 11px; color: rgba(255,255,255,0.22); line-height: 1.5; margin-top: 8px; margin-bottom: 2px; }
+
+.status-row { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+.sdot { width: 7px; height: 7px; border-radius: 50%; background: #374151; flex-shrink: 0; }
+.sdot.live { background: #22c55e; }
+.sdot.final { background: #ef4444; }
+.sdot.pre { background: #f59e0b; }
+.stext { font-size: 11px; color: rgba(255,255,255,0.28); }
+
+.push-status { font-size: 11px; color: rgba(255,255,255,0.22); text-align: center; margin-top: 16px; transition: color .2s; }
+.push-status.ok { color: rgba(34,197,94,0.55); }
+.push-status.err { color: rgba(239,68,68,0.55); }
+
+.conn-row { display: flex; align-items: center; gap: 7px; justify-content: center; margin-top: 6px; }
+.conn-dot { width: 7px; height: 7px; border-radius: 50%; background: #ef4444; transition: background .2s; }
+.conn-dot.on { background: #22c55e; }
+.conn-text { font-size: 11px; color: rgba(255,255,255,0.28); }
+</style>
+</head>
+<body>
+<div class="panel">
+  <h1>⚾ Studio 2 Scorebug Control</h1>
+
+  <div class="section">
+    <div class="section-title">Connection</div>
+    <div class="row">
+      <label>Unique ID</label>
+      <input type="text" id="topic-input" placeholder="e.g. studio2-game-x7k2" autocomplete="off" spellcheck="false">
+    </div>
+    <p class="hint">Create any ID you want — this is how this page talks to OBS. Make it unique so it doesn't conflict with anyone else's scorebug.</p>
+    <div class="obs-url-box">
+      <span class="obs-url-text" id="obs-url-text">Enter a Unique ID above to generate your OBS URL</span>
+      <button class="copy-btn" id="copy-btn" onclick="copyUrl()">Copy</button>
+    </div>
+    <div class="conn-row"><div class="conn-dot" id="conn-dot"></div><span class="conn-text" id="conn-text">Not connected</span></div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Game</div>
+    <div class="row">
+      <select id="game-sel"><option value="">Loading…</option></select>
+    </div>
+    <div class="status-row">
+      <div class="sdot" id="sdot"></div>
+      <span class="stext" id="stext">—</span>
+    </div>
+  </div>
+
+  <div class="push-status" id="push-status">—</div>
+</div>
+
+<script>
+const MLB = 'https://statsapi.mlb.com';
+
+firebase.initializeApp({
+  apiKey: 'AIzaSyBG2PS2muH4i27HefuLeBnZWW-TZ5dkMCw',
+  databaseURL: 'https://pinpoint-abf21-default-rtdb.firebaseio.com'
+});
+const _db = firebase.database();
+const fbKey = t => t.trim().replace(/[.#$\[\]\/\s]+/g, '-');
+const fbRef = topic => _db.ref(`studio2scorebug/${fbKey(topic)}/state`);
+
+_db.ref('.info/connected').on('value', snap => {
+  document.getElementById('conn-dot').classList.toggle('on', !!snap.val());
+  document.getElementById('conn-text').textContent = snap.val() ? 'Connected' : 'Not connected';
+});
+
+let todayGames = [];
+const topicInput = document.getElementById('topic-input');
+const gameSel = document.getElementById('game-sel');
+
+const saved = JSON.parse(localStorage.getItem('studio2-ctrl') || '{}');
+topicInput.value = saved.topic || '';
+updateObsUrl();
+
+topicInput.addEventListener('input', () => {
+  const clean = topicInput.value.replace(/\s+/g, '-');
+  if (clean !== topicInput.value) topicInput.value = clean;
+  updateObsUrl();
+  saveAndPush();
+});
+gameSel.addEventListener('change', () => { updateGameStatus(); saveAndPush(); });
+
+function updateObsUrl() {
+  const topic = topicInput.value.trim();
+  const urlEl = document.getElementById('obs-url-text');
+  if (!topic) { urlEl.textContent = 'Enter a Unique ID above to generate your OBS URL'; return; }
+  const base = location.origin + location.pathname.replace('control.html', 'display.html');
+  urlEl.textContent = `${base}?topic=${encodeURIComponent(topic)}&obs=1`;
+}
+
+function copyUrl() {
+  const text = document.getElementById('obs-url-text').textContent;
+  if (!text.startsWith('http')) return;
+  navigator.clipboard.writeText(text);
+  const btn = document.getElementById('copy-btn');
+  btn.textContent = 'Copied!'; btn.classList.add('copied');
+  setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+}
+
+function saveSettings() {
+  localStorage.setItem('studio2-ctrl', JSON.stringify({
+    topic: topicInput.value.trim(),
+    gamePk: gameSel.value
+  }));
+}
+
+let pushTimer = null;
+function saveAndPush() {
+  saveSettings();
+  clearTimeout(pushTimer);
+  pushTimer = setTimeout(pushConfig, 400);
+}
+
+async function pushConfig() {
+  const topic = topicInput.value.trim();
+  if (!topic || !gameSel.value) return;
+  const g = todayGames.find(g => String(g.gamePk) === gameSel.value);
+  if (!g) return;
+  const cfg = {
+    gamePk: g.gamePk,
+    awayId: g.teams.away.team.id,
+    homeId: g.teams.home.team.id
+  };
+  const statusEl = document.getElementById('push-status');
+  try {
+    await fbRef(topic).set(cfg);
+    statusEl.textContent = `Config pushed · ${new Date().toLocaleTimeString()}`;
+    statusEl.className = 'push-status ok';
+  } catch (e) {
+    statusEl.textContent = `Push failed: ${e.message}`;
+    statusEl.className = 'push-status err';
+  }
+}
+
+const todayStr = () => new Date().toLocaleDateString('en-CA');
+
+async function loadSchedule() {
+  try {
+    const data = await fetch(`${MLB}/api/v1/schedule?sportId=1&date=${todayStr()}&hydrate=team,linescore`).then(r => r.json());
+    todayGames = data.dates?.[0]?.games || [];
+
+    gameSel.innerHTML = '<option value="">— None —</option>';
+    todayGames.forEach(g => {
+      const opt = document.createElement('option');
+      opt.value = g.gamePk;
+      const aw = g.teams.away.team.abbreviation;
+      const hw = g.teams.home.team.abbreviation;
+      const dt = g.gameDate ? new Date(g.gameDate).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : '';
+      opt.textContent = `${aw} @ ${hw} — ${dt} · ${g.status.detailedState}`;
+      if (g.status.abstractGameState === 'Final') opt.disabled = true;
+      gameSel.appendChild(opt);
+    });
+
+    const savedGame = saved.gamePk && todayGames.find(g => String(g.gamePk) === String(saved.gamePk));
+    if (savedGame && savedGame.status.abstractGameState !== 'Final') gameSel.value = saved.gamePk;
+
+    updateGameStatus();
+    saveAndPush();
+  } catch (e) { console.error(e); }
+
+  setInterval(async () => {
+    try {
+      const d = await fetch(`${MLB}/api/v1/schedule?sportId=1&date=${todayStr()}&hydrate=team,linescore`).then(r => r.json());
+      todayGames = d.dates?.[0]?.games || [];
+    } catch (e) { console.error(e); }
+    gameSel.querySelectorAll('option').forEach(opt => {
+      const g = todayGames.find(g => String(g.gamePk) === opt.value);
+      if (g) opt.disabled = g.status.abstractGameState === 'Final';
+    });
+    updateGameStatus();
+  }, 30000);
+}
+
+function updateGameStatus() {
+  const pk = gameSel.value;
+  const game = todayGames.find(g => String(g.gamePk) === String(pk));
+  const dot = document.getElementById('sdot');
+  const txt = document.getElementById('stext');
+  if (!game) { dot.className = 'sdot'; txt.textContent = '—'; return; }
+  const state = game.status.abstractGameState;
+  dot.className = 'sdot ' + (state === 'Live' ? 'live' : state === 'Final' ? 'final' : 'pre');
+  txt.textContent = game.status.detailedState;
+}
+
+loadSchedule();
+</script>
+</body>
+</html>

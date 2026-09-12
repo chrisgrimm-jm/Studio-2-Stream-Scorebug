@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Studio 2 Scorebug</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;600;700;900&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { background: transparent; width: 100%; height: 100%; overflow: hidden; }
+
+.bar {
+  position: fixed; left: 0; right: 0; bottom: 0;
+  height: 120px;
+  background: #fff;
+  font-family: 'Barlow', sans-serif;
+  display: flex; align-items: center; justify-content: center;
+  filter: drop-shadow(0 -2px 10px rgba(0,0,0,.4));
+}
+.side { flex: 1; display: flex; align-items: center; gap: 16px; padding: 0 32px; min-width: 0; }
+.side.away { justify-content: flex-end; }
+.side.home { justify-content: flex-start; }
+.logo { width: 58px; height: 58px; object-fit: contain; flex-shrink: 0; }
+.score { font-size: 46px; font-weight: 900; color: #111; min-width: 46px; text-align: center; }
+
+.info { display: flex; flex-direction: column; gap: 1px; max-width: 210px; min-width: 0; }
+.info-role { font-size: 10px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: #999; }
+.info-name { font-size: 15px; font-weight: 800; color: #111; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.info-line { font-size: 12px; font-weight: 600; color: #666; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.mid { display: flex; flex-direction: column; align-items: center; gap: 7px; padding: 0 22px; }
+
+.seg-inning {
+  width: 88px; height: 46px;
+  background: #f2f2f2; border: 1px solid #e4e4e4; border-radius: 4px;
+  position: relative; overflow: visible;
+}
+.diamond-svg { position: absolute; top: 0; left: 0; width: 88px; height: 46px; overflow: visible; }
+.diamond-content {
+  position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+  display: flex; flex-direction: row; align-items: center; justify-content: center;
+  gap: 4px; z-index: 2;
+}
+.tri-col { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+.tri { width: 0; height: 0; opacity: 0; transition: opacity .2s; }
+.tri.top-tri { border-bottom: 6px solid #000; border-left: 5px solid transparent; border-right: 5px solid transparent; }
+.tri.bottom-tri { border-top: 6px solid #000; border-left: 5px solid transparent; border-right: 5px solid transparent; }
+.tri.on { opacity: 1; }
+.inning-num { font-size: 22px; font-weight: 900; color: #000; line-height: 1; }
+
+.base-sq {
+  width: 9px; height: 9px; position: absolute;
+  transform: rotate(45deg);
+  background: rgba(0,0,0,.1); border: 1.5px solid rgba(0,0,0,.2);
+  transition: background .2s, border-color .2s; z-index: 3;
+}
+.base-sq.on { background: #f59e0b; border-color: #d97706; }
+.base-sq-2 { top: -1px; left: 50%; margin-left: -4.5px; }
+.base-sq-1 { top: 18px; right: 11px; }
+.base-sq-3 { top: 18px; left: 11px; }
+
+.count-bar { display: flex; align-items: stretch; gap: 7px; }
+.count-seg {
+  display: flex; align-items: center; justify-content: center; gap: 5px;
+  background: #f2f2f2; border: 1px solid #e4e4e4; border-radius: 3px;
+  padding: 0 9px; height: 26px;
+}
+.count-label { font-size: 12px; font-weight: 900; color: rgba(0,0,0,.35); text-transform: uppercase; letter-spacing: .06em; }
+.dots { display: flex; gap: 4px; align-items: center; }
+.dot { width: 10px; height: 10px; border-radius: 50%; background: rgba(0,0,0,.1); border: 1.2px solid rgba(0,0,0,.18); }
+.dot.on-b { background: #22c55e; border-color: #16a34a; }
+.dot.on-s { background: #f59e0b; border-color: #d97706; }
+.dot.on-o { background: #ef4444; border-color: #dc2626; }
+</style>
+</head>
+<body>
+
+<div class="bar" id="bar" style="display:none">
+  <div class="side away">
+    <img class="logo" id="away-logo" alt="">
+    <div class="info" id="away-info"></div>
+  </div>
+  <div class="score" id="away-score">0</div>
+  <div class="mid">
+    <div class="seg-inning" id="seg-inning">
+      <svg class="diamond-svg" viewBox="0 0 88 46" xmlns="http://www.w3.org/2000/svg">
+        <polygon points="44,4 72,20 44,36 16,20" fill="none" stroke="rgba(0,0,0,0.5)" stroke-width="2"/>
+      </svg>
+      <div class="base-sq base-sq-2" id="base2"></div>
+      <div class="base-sq base-sq-1" id="base1"></div>
+      <div class="base-sq base-sq-3" id="base3"></div>
+      <div class="diamond-content">
+        <div class="tri-col">
+          <div class="tri top-tri" id="tri-top"></div>
+          <div class="tri bottom-tri" id="tri-bot"></div>
+        </div>
+        <div class="inning-num" id="inning-num">—</div>
+      </div>
+    </div>
+    <div class="count-bar" id="count-bar">
+      <div class="count-seg">
+        <span class="count-label">B</span>
+        <div class="dots" id="ball-dots"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+      </div>
+      <div class="count-seg">
+        <span class="count-label">S</span>
+        <div class="dots" id="strike-dots"><div class="dot"></div><div class="dot"></div></div>
+      </div>
+      <div class="count-seg">
+        <span class="count-label">O</span>
+        <div class="dots" id="out-dots"><div class="dot"></div><div class="dot"></div></div>
+      </div>
+    </div>
+  </div>
+  <div class="score" id="home-score">0</div>
+  <div class="side home">
+    <div class="info" id="home-info"></div>
+    <img class="logo" id="home-logo" alt="">
+  </div>
+</div>
+
+<script>
+const MLB = 'https://statsapi.mlb.com';
+const params = new URLSearchParams(location.search);
+const TOPIC = params.get('topic') || '';
+
+firebase.initializeApp({
+  apiKey: 'AIzaSyBG2PS2muH4i27HefuLeBnZWW-TZ5dkMCw',
+  databaseURL: 'https://pinpoint-abf21-default-rtdb.firebaseio.com'
+});
+const _db = firebase.database();
+const fbKey = t => t.trim().replace(/[.#$\[\]\/\s]+/g, '-');
+
+let gamePk = null, awayId = null, homeId = null, pollTimer = null;
+
+if (TOPIC) {
+  _db.ref(`studio2scorebug/${fbKey(TOPIC)}/state`).on('value', snap => {
+    const cfg = snap.val();
+    if (!cfg || !cfg.gamePk) return;
+    if (cfg.gamePk === gamePk) return;
+
+    gamePk = cfg.gamePk;
+    awayId = cfg.awayId;
+    homeId = cfg.homeId;
+
+    document.getElementById('away-logo').src = `https://www.mlbstatic.com/team-logos/${awayId}.svg`;
+    document.getElementById('home-logo').src = `https://www.mlbstatic.com/team-logos/${homeId}.svg`;
+    document.getElementById('bar').style.display = 'flex';
+
+    clearInterval(pollTimer);
+    poll();
+    pollTimer = setInterval(poll, 5000);
+  });
+}
+
+function personBlock(role, name, lines) {
+  return `<div class="info-role">${role}</div><div class="info-name">${name}</div>` +
+    lines.filter(Boolean).map(l => `<div class="info-line">${l}</div>`).join('');
+}
+
+function updateDots(id, count, max, cls) {
+  document.querySelectorAll(`#${id} .dot`).forEach((d, i) => {
+    d.className = 'dot' + (i < count ? ' ' + cls : '');
+  });
+}
+
+// Find the most recent pitch thrown, scanning back from the in-progress at-bat
+// through completed plays (a play like a pickoff or mound visit has no pitches).
+function findLastPitch(data) {
+  const plays = data.liveData?.plays?.allPlays || [];
+  const cp = data.liveData?.plays?.currentPlay;
+  const combined = plays.slice();
+  if (cp && (!plays.length || cp.atBatIndex !== plays[plays.length - 1].atBatIndex)) combined.push(cp);
+  for (let i = combined.length - 1; i >= 0; i--) {
+    const pitches = (combined[i].playEvents || []).filter(e => e.isPitch);
+    if (pitches.length) return pitches[pitches.length - 1];
+  }
+  return null;
+}
+
+async function poll() {
+  if (!gamePk) return;
+  try {
+    const data = await fetch(`${MLB}/api/v1.1/game/${gamePk}/feed/live`).then(r => r.json());
+    const gd = data.gameData;
+    const ls = data.liveData?.linescore || {};
+    const state = gd.status.abstractGameState;
+    const detailed = gd.status.detailedState || '';
+    const isFinal = state === 'Final' || detailed.startsWith('Final');
+
+    document.getElementById('away-score').textContent = ls.teams?.away?.runs ?? 0;
+    document.getElementById('home-score').textContent = ls.teams?.home?.runs ?? 0;
+
+    const triTop = document.getElementById('tri-top');
+    const triBot = document.getElementById('tri-bot');
+    const inningNum = document.getElementById('inning-num');
+    const countBar = document.getElementById('count-bar');
+    const awayInfo = document.getElementById('away-info');
+    const homeInfo = document.getElementById('home-info');
+
+    if (isFinal) {
+      triTop.classList.remove('on'); triBot.classList.remove('on');
+      inningNum.textContent = 'F';
+      countBar.style.visibility = 'hidden';
+      awayInfo.innerHTML = '';
+      homeInfo.innerHTML = '';
+    } else if (state === 'Live') {
+      const off = ls.offense || {};
+      const battingIsAway = off.team?.id === awayId;
+
+      inningNum.textContent = ls.currentInning || 1;
+      triTop.classList.toggle('on', battingIsAway);
+      triBot.classList.toggle('on', !battingIsAway);
+
+      document.getElementById('base1').classList.toggle('on', !!off.first);
+      document.getElementById('base2').classList.toggle('on', !!off.second);
+      document.getElementById('base3').classList.toggle('on', !!off.third);
+
+      countBar.style.visibility = 'visible';
+      updateDots('ball-dots', ls.balls ?? 0, 3, 'on-b');
+      updateDots('strike-dots', ls.strikes ?? 0, 2, 'on-s');
+      updateDots('out-dots', ls.outs ?? 0, 2, 'on-o');
+
+      const boxSide = battingIsAway ? 'away' : 'home';
+      const pitchSide = battingIsAway ? 'home' : 'away';
+      const batterId = off.batter?.id;
+      const pitcherId = (ls.defense || {}).pitcher?.id;
+      const battingLine = data.liveData.boxscore?.teams?.[boxSide]?.players?.[`ID${batterId}`]?.stats?.batting?.summary || '';
+      const pitching = data.liveData.boxscore?.teams?.[pitchSide]?.players?.[`ID${pitcherId}`]?.stats?.pitching || {};
+      const pitchCount = pitching.numberOfPitches != null ? `${pitching.numberOfPitches} pitches` : '';
+
+      const lastPitch = findLastPitch(data);
+      const lastPitchLine = lastPitch
+        ? `Last: ${lastPitch.details?.type?.description || 'Pitch'}, ${lastPitch.pitchData?.startSpeed ? lastPitch.pitchData.startSpeed.toFixed(1) + ' mph' : ''}`
+        : '';
+
+      const batterBlock = personBlock('At Bat', off.batter?.fullName || '—', [battingLine]);
+      const pitcherBlock = personBlock('Pitching', (ls.defense || {}).pitcher?.fullName || '—', [pitchCount, lastPitchLine]);
+      awayInfo.innerHTML = battingIsAway ? batterBlock : pitcherBlock;
+      homeInfo.innerHTML = battingIsAway ? pitcherBlock : batterBlock;
+    } else {
+      triTop.classList.remove('on'); triBot.classList.remove('on');
+      inningNum.textContent = '1';
+      countBar.style.visibility = 'hidden';
+      awayInfo.innerHTML = '';
+      homeInfo.innerHTML = '';
+    }
+  } catch (e) { console.error(e); }
+}
+</script>
+</body>
+</html>
