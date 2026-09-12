@@ -14,10 +14,13 @@ html, body { background: transparent; width: 100%; height: 100%; overflow: hidde
   position: fixed; left: 269px; right: 269px; bottom: 73px;
   height: 120px;
   background: #fff;
+  border-radius: 10px;
+  overflow: hidden;
   font-family: 'Barlow', sans-serif;
   display: flex; align-items: center; justify-content: center;
-  filter: drop-shadow(0 -2px 10px rgba(0,0,0,.4));
+  box-shadow: 0 3px 6px rgba(0,0,0,.35), 0 16px 32px rgba(0,0,0,.3);
 }
+.team-stripe { position: absolute; top: 0; left: 0; right: 0; height: 5px; }
 .side { flex: 1; display: flex; align-items: center; justify-content: space-between; padding: 0 32px; min-width: 0; }
 .logo { width: 92px; height: 92px; object-fit: contain; flex-shrink: 0; }
 .score { font-size: 64px; font-weight: 900; color: #111; min-width: 64px; text-align: center; }
@@ -76,6 +79,7 @@ html, body { background: transparent; width: 100%; height: 100%; overflow: hidde
 <body>
 
 <div class="bar" id="bar" style="display:none">
+  <div class="team-stripe" id="team-stripe"></div>
   <div class="side away">
     <img class="logo" id="away-logo" alt="">
     <div class="info" id="away-info"></div>
@@ -124,6 +128,17 @@ const MLB = 'https://statsapi.mlb.com';
 const params = new URLSearchParams(location.search);
 const TOPIC = params.get('topic') || '';
 
+// Team primary colors keyed by MLB team id, for the top accent stripe.
+const TEAM_COLORS = {
+  133: '#003831', 144: '#ce1141', 109: '#a71930', 110: '#df4601', 111: '#bd3039',
+  112: '#0e3386', 113: '#c6011f', 114: '#00385d', 115: '#333366', 145: '#27251f',
+  116: '#0c2340', 117: '#002d62', 118: '#004687', 108: '#ba0021', 119: '#005a9c',
+  146: '#00a3e0', 158: '#ffc52f', 142: '#002b5c', 121: '#002d72', 147: '#003087',
+  143: '#e81828', 134: '#fdb827', 135: '#2f241d', 136: '#0c2c56', 137: '#fd5a1e',
+  138: '#c41e3a', 139: '#092c5c', 140: '#003278', 141: '#134a8e', 120: '#ab0003'
+};
+const teamColor = id => TEAM_COLORS[id] || '#444';
+
 firebase.initializeApp({
   apiKey: 'AIzaSyBG2PS2muH4i27HefuLeBnZWW-TZ5dkMCw',
   databaseURL: 'https://pinpoint-abf21-default-rtdb.firebaseio.com'
@@ -148,6 +163,8 @@ if (TOPIC) {
 
     document.getElementById('away-logo').src = `https://www.mlbstatic.com/team-logos/${awayId}.svg`;
     document.getElementById('home-logo').src = `https://www.mlbstatic.com/team-logos/${homeId}.svg`;
+    document.getElementById('team-stripe').style.background =
+      `linear-gradient(to right, ${teamColor(awayId)} 50%, ${teamColor(homeId)} 50%)`;
     document.getElementById('bar').style.display = 'flex';
 
     clearInterval(pollTimer);
