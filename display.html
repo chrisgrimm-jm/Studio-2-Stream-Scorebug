@@ -26,6 +26,7 @@ html, body { background: transparent; width: 100%; height: 100%; overflow: hidde
 .info-role { font-size: 12px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: #999; }
 .info-name { width: 100%; font-size: 20px; font-weight: 800; color: #111; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .info-line { width: 100%; font-size: 15px; font-weight: 600; color: #666; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.info-line-lg { width: 100%; font-size: 18px; font-weight: 700; color: #444; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 .mid { display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 0 22px; }
 
@@ -193,6 +194,29 @@ function personBlock(role, name, lines) {
     lines.filter(Boolean).map(l => `<div class="info-line">${l}</div>`).join('');
 }
 
+function batterBlock(role, name, summaryLine, paListLine) {
+  return `<div class="info-role">${role}</div><div class="info-name">${name}</div>` +
+    (summaryLine ? `<div class="info-line-lg">${summaryLine}</div>` : '') +
+    (paListLine ? `<div class="info-line">${paListLine}</div>` : '');
+}
+
+const PA_LABELS = {
+  single: '1B', double: '2B', triple: '3B', home_run: 'HR',
+  walk: 'BB', intent_walk: 'IBB', strikeout: 'K', hit_by_pitch: 'HBP',
+  sac_fly: 'SF', sac_bunt: 'SAC', field_out: 'Out', force_out: 'Out',
+  grounded_into_double_play: 'DP', double_play: 'DP', fielders_choice: 'FC',
+  fielders_choice_out: 'FC', catcher_interf: 'CI', field_error: 'E'
+};
+
+// This game's at-bat outcomes for one batter, in order, e.g. "K, BB, 1B".
+function paHistory(data, batterId) {
+  const plays = data.liveData?.plays?.allPlays || [];
+  const outcomes = plays
+    .filter(p => p.matchup?.batter?.id === batterId && p.about?.isComplete)
+    .map(p => PA_LABELS[p.result?.eventType] || p.result?.event || '');
+  return outcomes.filter(Boolean).join(', ');
+}
+
 function updateDots(id, count, max, cls) {
   document.querySelectorAll(`#${id} .dot`).forEach((d, i) => {
     d.className = 'dot' + (i < count ? ' ' + cls : '');
@@ -287,12 +311,13 @@ function render(data) {
       const seasonVsLine = batterId && pitcherId
         ? getVsPitcherLine(batterId, pitcherId, gd.game.season, pitcherLastName)
         : undefined;
-      const batterLine = (showSeasonLine && seasonVsLine) ? seasonVsLine : battingLine;
+      const summaryLine = (showSeasonLine && seasonVsLine) ? seasonVsLine : battingLine;
+      const paListLine = batterId ? paHistory(data, batterId) : '';
 
-      const batterBlock = personBlock('At Bat', off.batter?.fullName || '—', [batterLine]);
-      const pitcherBlock = personBlock('Pitching', (ls.defense || {}).pitcher?.fullName || '—', [pitchCount, lastPitchLine]);
-      awayInfo.innerHTML = battingIsAway ? batterBlock : pitcherBlock;
-      homeInfo.innerHTML = battingIsAway ? pitcherBlock : batterBlock;
+      const batterHtml = batterBlock('At Bat', off.batter?.fullName || '—', summaryLine, paListLine);
+      const pitcherHtml = personBlock('Pitching', (ls.defense || {}).pitcher?.fullName || '—', [pitchCount, lastPitchLine]);
+      awayInfo.innerHTML = battingIsAway ? batterHtml : pitcherHtml;
+      homeInfo.innerHTML = battingIsAway ? pitcherHtml : batterHtml;
     } else {
       triTop.classList.remove('on'); triBot.classList.remove('on');
       inningNum.textContent = '1';
