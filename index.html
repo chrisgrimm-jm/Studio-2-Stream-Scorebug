@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Studio 2 Scorebug</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;600;700;900&display=swap" rel="stylesheet">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Barlow', sans-serif; }
+html, body { background: #0a0d14; color: #c8d0da; min-height: 100vh; }
+.panel { max-width: 560px; margin: 0 auto; padding: 40px 20px 60px; }
+h1 { font-size: 20px; font-weight: 900; color: #fff; margin-bottom: 6px; }
+.sub { font-size: 13px; color: rgba(255,255,255,0.35); margin-bottom: 28px; }
+.section {
+  background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 8px; padding: 18px 20px; margin-bottom: 16px;
+}
+.section-title {
+  font-size: 10px; font-weight: 700; letter-spacing: .13em; text-transform: uppercase;
+  color: rgba(255,255,255,0.28); margin-bottom: 12px;
+}
+p { font-size: 13px; line-height: 1.6; color: #c8d0da; }
+ol { margin: 0; padding-left: 20px; }
+ol li { font-size: 13px; line-height: 1.9; color: #c8d0da; }
+a.cta {
+  display: inline-block; margin-top: 20px; font-size: 13px; font-weight: 700;
+  color: #0a0d14; background: #22c55e; padding: 10px 18px; border-radius: 6px;
+  text-decoration: none; letter-spacing: .02em;
+}
+a.cta:hover { background: #16a34a; }
+code { font-family: monospace; font-size: 12px; background: rgba(255,255,255,0.06); padding: 1px 5px; border-radius: 3px; }
+</style>
+</head>
+<body>
+<div class="panel">
+  <h1>⚾ Studio 2 Scorebug</h1>
+  <p class="sub">Single-game OBS scorebug for supplement streams</p>
+
+  <div class="section">
+    <p>Shows the score, inning, count, baserunners, and live at-bat/pitching info for one MLB game, meant to be docked at the bottom of a secondary stream watching just that game.</p>
+  </div>
+
+  <div class="section">
+    <div class="section-title">How it works</div>
+    <ol>
+      <li>Open the Control panel and enter a Unique ID for your stream</li>
+      <li>Pick the game and a spoiler delay (how far behind live the bug should lag)</li>
+      <li>Copy the generated OBS URL and add it as a Browser Source in OBS</li>
+      <li>The bug updates itself as the game progresses &mdash; no further input needed</li>
+    </ol>
+    <a class="cta" href="control.html">Open Control Panel</a>
+  </div>
+
+  <div class="section">
+    <p>Control page: <code>control.html</code> &middot; OBS overlay: <code>display.html</code></p>
+  </div>
+</div>
+</body>
+</html>
