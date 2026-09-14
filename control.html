@@ -34,7 +34,7 @@ label {
   font-size: 11px; font-weight: 700; color: rgba(255,255,255,0.35);
   text-transform: uppercase; letter-spacing: .07em; min-width: 56px; flex-shrink: 0;
 }
-select, input[type="text"] {
+select, input[type="text"], input[type="number"] {
   background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
   border-radius: 4px; color: #e0e6ee; font-size: 13px; font-family: 'Barlow', sans-serif;
   padding: 7px 10px; flex: 1; outline: none; transition: border-color .15s; cursor: pointer;
@@ -73,6 +73,20 @@ option:disabled { color: rgba(255,255,255,0.2); }
 .conn-dot { width: 7px; height: 7px; border-radius: 50%; background: #ef4444; transition: background .2s; }
 .conn-dot.on { background: #22c55e; }
 .conn-text { font-size: 11px; color: rgba(255,255,255,0.28); }
+
+.preview-box {
+  position: relative; width: 100%; aspect-ratio: 16 / 9; overflow: hidden;
+  border-radius: 6px; border: 1px solid rgba(255,255,255,0.08);
+  background: repeating-conic-gradient(#171b24 0% 25%, #12151c 0% 50%) 50% / 28px 28px;
+}
+.preview-box iframe {
+  position: absolute; top: 0; left: 0; width: 1920px; height: 1080px; border: 0;
+  transform-origin: top left; pointer-events: none;
+}
+.preview-empty {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  font-size: 11px; color: rgba(255,255,255,0.25); text-align: center; padding: 0 20px;
+}
 </style>
 </head>
 <body>
@@ -124,6 +138,32 @@ option:disabled { color: rgba(255,255,255,0.2); }
     </div>
   </div>
 
+  <div class="section">
+    <div class="section-title">Preview</div>
+    <div class="preview-box" id="preview-box">
+      <iframe id="preview-frame" src="about:blank"></iframe>
+      <div class="preview-empty" id="preview-empty">Enter a Unique ID and pick a game to preview</div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Position &amp; Size</div>
+    <div class="row">
+      <label>Scale</label>
+      <input type="number" id="scale-sel" value="100" min="25" max="300" step="5">
+    </div>
+    <div class="row">
+      <label>Move X</label>
+      <input type="number" id="offx-sel" value="0" step="5">
+    </div>
+    <div class="row">
+      <label>Move Y</label>
+      <input type="number" id="offy-sel" value="0" step="5">
+    </div>
+    <p class="hint">Scale (%) and pixel offset from the default bottom-center position. Bar grows from its bottom edge.</p>
+    <button class="copy-btn" id="reset-pos-btn" style="margin-top:10px;">Reset to default</button>
+  </div>
+
   <div class="push-status" id="push-status">—</div>
 </div>
 
@@ -147,20 +187,36 @@ let todayGames = [];
 const topicInput = document.getElementById('topic-input');
 const gameSel = document.getElementById('game-sel');
 const delaySel = document.getElementById('delay-sel');
+const scaleSel = document.getElementById('scale-sel');
+const offxSel = document.getElementById('offx-sel');
+const offySel = document.getElementById('offy-sel');
+const previewBox = document.getElementById('preview-box');
+const previewFrame = document.getElementById('preview-frame');
+const previewEmpty = document.getElementById('preview-empty');
 
 const saved = JSON.parse(localStorage.getItem('studio2-ctrl') || '{}');
 topicInput.value = saved.topic || '';
 if (saved.delay) delaySel.value = saved.delay;
+if (saved.scale) scaleSel.value = saved.scale;
+if (saved.offsetX) offxSel.value = saved.offsetX;
+if (saved.offsetY) offySel.value = saved.offsetY;
 updateObsUrl();
+updatePreview();
 
 topicInput.addEventListener('input', () => {
   const clean = topicInput.value.replace(/\s+/g, '-');
   if (clean !== topicInput.value) topicInput.value = clean;
   updateObsUrl();
+  updatePreview();
   saveAndPush();
 });
 gameSel.addEventListener('change', () => { updateGameStatus(); saveAndPush(); });
 delaySel.addEventListener('change', saveAndPush);
+[scaleSel, offxSel, offySel].forEach(el => el.addEventListener('input', saveAndPush));
+document.getElementById('reset-pos-btn').addEventListener('click', () => {
+  scaleSel.value = 100; offxSel.value = 0; offySel.value = 0;
+  saveAndPush();
+});
 
 function updateObsUrl() {
   const topic = topicInput.value.trim();
@@ -168,6 +224,21 @@ function updateObsUrl() {
   if (!topic) { urlEl.textContent = 'Enter a Unique ID above to generate your OBS URL'; return; }
   const base = location.origin + location.pathname.replace('control.html', 'display.html');
   urlEl.textContent = `${base}?topic=${encodeURIComponent(topic)}&obs=1`;
+}
+
+function scalePreview() {
+  previewFrame.style.transform = `scale(${previewBox.clientWidth / 1920})`;
+}
+window.addEventListener('resize', scalePreview);
+
+function updatePreview() {
+  const topic = topicInput.value.trim();
+  previewEmpty.style.display = topic ? 'none' : 'flex';
+  if (!topic) { previewFrame.src = 'about:blank'; return; }
+  const base = location.origin + location.pathname.replace('control.html', 'display.html');
+  const src = `${base}?topic=${encodeURIComponent(topic)}&obs=1`;
+  if (previewFrame.src !== src) previewFrame.src = src;
+  scalePreview();
 }
 
 function copyUrl() {
@@ -183,7 +254,10 @@ function saveSettings() {
   localStorage.setItem('studio2-ctrl', JSON.stringify({
     topic: topicInput.value.trim(),
     gamePk: gameSel.value,
-    delay: delaySel.value
+    delay: delaySel.value,
+    scale: scaleSel.value,
+    offsetX: offxSel.value,
+    offsetY: offySel.value
   }));
 }
 
@@ -203,7 +277,10 @@ async function pushConfig() {
     gamePk: g.gamePk,
     awayId: g.teams.away.team.id,
     homeId: g.teams.home.team.id,
-    delay: parseInt(delaySel.value)
+    delay: parseInt(delaySel.value),
+    scale: parseInt(scaleSel.value) || 100,
+    offsetX: parseInt(offxSel.value) || 0,
+    offsetY: parseInt(offySel.value) || 0
   };
   const statusEl = document.getElementById('push-status');
   try {
